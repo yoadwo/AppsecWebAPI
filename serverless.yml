@@ -1,0 +1,27 @@
+org: yoadw
+app: appsec
+service: node-api-appsec
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  httpApi:
+    cors: true
+  environment:
+    DOCKERHUB_USER: ${param:dockerhub_user}
+    DOCKERHUB_PWD: ${param:dockerhub_pwd}
+
+functions:
+  hello:
+    handler: index.handler
+    events:
+      - httpApi:
+          path: /
+          method: get
+  dockercves:
+    handler: lambdas/endpoints/dockerImagesCves.handler
+    events:
+      - httpApi:
+          method: GET
+          path: /dockerImagesCves
