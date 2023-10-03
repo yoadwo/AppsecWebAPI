@@ -25,3 +25,9 @@ functions:
       - httpApi:
           method: GET
           path: /dockerImagesCves
+  dependencycves:
+    handler: lambdas/endpoints/dependencyCves.handler
+    events:
+      - httpApi:
+          method: GET
+          path: /dependencyCves          
