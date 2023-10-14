@@ -6,7 +6,7 @@ const Responses = require("../common/responses");
 const osvScannerUrl = 'https://api.osv.dev/v1/query';
 
 exports.handler = async (event) => {
-  console.log("event: ", event);
+  console.log("query string params: ", event.queryStringParameters);
 
   if (!event.queryStringParameters) {
     return Responses._400({ message: "missing request parameters" });
@@ -32,6 +32,7 @@ exports.handler = async (event) => {
     }),
   });
   const osvScannerData = await osvScannerResponse.json();
+  console.log('osv.dev response: ', osvScannerData);
   const mappedOsvScannerData = manipulateOsvScannerData(osvScannerData);
 
   console.log("mapped osv scanner data: ", mappedOsvScannerData);  
@@ -41,7 +42,9 @@ exports.handler = async (event) => {
 
 function manipulateOsvScannerData(jsonObject){
   if (jsonObject.vulns && Array.isArray(jsonObject.vulns)) {
-    const transformedVulns = jsonObject.vulns.map((vuln) => {
+    const transformedVulns = jsonObject.vulns
+    .filter(vuln => vuln.database_specific != null)
+    .map((vuln) => {
       const transformedObj = {
         id: vuln.id,
         summary: vuln.summary,
