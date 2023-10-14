@@ -30,4 +30,10 @@ functions:
     events:
       - httpApi:
           method: GET
-          path: /dependencyCves          
+          path: /dependencyCves
+  dependencymalicious:
+    handler: lambdas/endpoints/dependencyMalicious.handler
+    events:
+      - httpApi:
+          method: GET
+          path: /dependencyMalicious
