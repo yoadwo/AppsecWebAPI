@@ -49,49 +49,71 @@ function extractPackagesInfoFromTable(html) {
 
   if (vulnsTable.length == 0) {
     console.log('No results found for the search term.');
-    return packageInfo;
+    return packagesInfo;
   }
 
   // Enumerate and print the rows
   vulnsTable.find('tbody > tr').each((index, element) => {
     const row = $(element);
 
-    const packageNameElement = row.find('a[data-snyk-test="vuln package"]');
+    const packageNameElement = extractNameElement(row);
     if (packageNameElement == null) {
       console.warn('Expecting element "a" when looking for package title, but none was found');
       return;
     }
 
-    const vulnerabilityElement = row.find('a[data-snyk-test="vuln table title"]');
+    const vulnerabilityElement = extractVulnerabilityElement(row);
     if (vulnerabilityElement == null) {
       console.warn('Expecting element "a" when looking for row title, but none was found');
       return;
     }
 
-    const packageRepoElement = row.find('td:nth-child(3) span');
+    const packageRepoElement = extractRepoElement(row);
     if (packageRepoElement == null || packageRepoElement.attr('type') === undefined) {
       console.warn('Expecting third column to contain type when looking for severity icon, but none was found');
       return;
     }
 
-    const severityItem = row.find(SNYK_SEVERITY_ICON);
-    if (severityItem == null) {
-      console.warn('Expecting specific class when looking for severity icon, but none was found');
+    const severityText = extractSeverity(row);
+    if (severityText == null) {
       return;
     }
-    const classes = severityItem.attr('class').split(' ');
-    const severityClass = classes[1];
-    const match = new RegExp(SEVERITY_PATTERN).exec(severityClass);
-    if (match == null || match.length < 2) {
-      console.warn('Expecting specific class when looking for severity text, but none was found');
-      return;
-    }
+
     packagesInfo.push({
       name: packageNameElement.text().trim(),
       type: vulnerabilityElement.text().trim(),
       repo: packageRepoElement.text().trim(),
-      severity: match[1]
+      severity: severityText
     })
   });
   return packagesInfo;
+}
+
+function extractNameElement(row) {
+  return row.find('a[data-snyk-test="vuln package"]');
+}
+
+function extractVulnerabilityElement(row) {
+  return row.find('a[data-snyk-test="vuln table title"]');
+}
+
+function extractRepoElement(row) {
+  return row.find('td:nth-child(3) span');
+}
+
+function extractSeverity(row) {
+  const severityItem = row.find(SNYK_SEVERITY_ICON);
+  if (severityItem == null) {
+    console.warn('Expecting specific class when looking for severity icon, but none was found');
+    return;
+  }
+  const classes = severityItem.attr('class').split(' ');
+  const severityClass = classes[1];
+  const match = new RegExp(SEVERITY_PATTERN).exec(severityClass);
+  if (match == null || match.length < 2) {
+    console.warn('Expecting specific class when looking for severity text, but none was found');
+    return;
+  }
+  return match[1];
+
 }
