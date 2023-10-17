@@ -52,7 +52,8 @@ exports.handler = async (event) => {
   return Responses._200({
     data: filteredPackages.map(pkg => {
       return {
-        severity: pkg.severity
+        severity: pkg.severity,
+        link: pkg.link
       }
     })
   })
