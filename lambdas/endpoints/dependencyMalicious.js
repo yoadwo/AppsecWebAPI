@@ -2,9 +2,13 @@ const fetch = require("node-fetch");
 const cheerio = require('cheerio');
 const Responses = require("../common/responses");
 
+const SNYK_BASEURL = 'https://security.snyk.io';
 const SNYK_VULNS_TABLE = '.vue--table.vulns-table__table';
 const SNYK_SEVERITY_ITEM = '.vue--severity__item';
 const SNYK_SEVERITY_PATTERN = /vue--severity__item--(.*)/;
+const SNYK_VULNERABILITY_COLUMN_PATTERN = 'a[data-snyk-test="vuln table title"]';
+const SNYK_AFFECTS_COLUMN_PATTERN = 'a[data-snyk-test="vuln package"]';
+const SNYK_TYPE_COLUMN_PATTERN = 'td:nth-child(3) span';
 const SNYK_HTML_MODIFIED = 'HTML cannot be parsed, page may have been changed by snyk';
 
 exports.handler = async (event) => {
@@ -19,7 +23,7 @@ exports.handler = async (event) => {
 
   console.log('package name and repo: ', packageName, repo);
 
-  const html = await fetch(`https://security.snyk.io/vuln/?search=${packageName}`, {
+  const html = await fetch(`${SNYK_BASEURL}/vuln/?search=${packageName}`, {
     method: 'GET',
     redirect: 'follow',
   }).then((r) => r.text());
@@ -29,7 +33,9 @@ exports.handler = async (event) => {
 
   if (vulnsTable.length == 0) {
     console.log('No results found for the search term.');
-    return [];
+    return {
+      data: []
+    };
   }
 
   let packagesInfo = [];
@@ -61,18 +67,27 @@ function extractPackagesInfoFromTable($, vulnsTable) {
 
     const packageNameString = extractPackageName(row);
 
+    const packageHrefString = extractPackageHref(row);
+
     const vulnerabilityString = extractVulnerability(row);
 
     const packageRepoString = extractRepo(row);
 
     const severityString = extractSeverity(row);
 
-    if ([packageNameString, vulnerabilityString, packageRepoString, severityString].includes(undefined)){
+    if ([
+      packageNameString,
+      packageHrefString,
+      vulnerabilityString,
+      packageRepoString,
+      severityString]
+      .includes(undefined)){
       throw new Error(SNYK_HTML_MODIFIED)
     }    
 
     packagesInfo.push({
       name: packageNameString,
+      link: SNYK_BASEURL + '/' + packageHrefString,
       type: vulnerabilityString,
       repo: packageRepoString,
       severity: severityString
@@ -82,17 +97,31 @@ function extractPackagesInfoFromTable($, vulnsTable) {
 }
 
 function extractPackageName(row) {
-  const packageNameElement = row.find('a[data-snyk-test="vuln package"]');
+  const packageNameElement = row.find(SNYK_AFFECTS_COLUMN_PATTERN);
   if (packageNameElement == null) {
-    console.warn('Expecting element "a" when looking for package title, but none was found');
+    console.warn('Expecting element "a" when looking for package title column, but none was found');
     return undefined;
   } else {
     return packageNameElement.text().trim();
   }
 }
 
+function extractPackageHref(row){
+  const packageNameElement = row.find(SNYK_VULNERABILITY_COLUMN_PATTERN);
+  if (packageNameElement == null) {
+    console.warn('Expecting element "a" when looking for package vulnerability column, but none was found');
+    return undefined;
+  }
+  const href = packageNameElement.attr('href');
+  if (href == null) {
+    console.warn('Expecting href attribute when looking in package vulnerability element, but none was found');
+    return undefined;
+  }
+  return href;
+}
+
 function extractVulnerability(row) {
-  const vulnerabilityElement = row.find('a[data-snyk-test="vuln table title"]');
+  const vulnerabilityElement = row.find(SNYK_VULNERABILITY_COLUMN_PATTERN);
   if (vulnerabilityElement == null) {
     console.warn('Expecting element "a" when looking for row title, but none was found');
     return undefined;;
@@ -102,7 +131,7 @@ function extractVulnerability(row) {
 }
 
 function extractRepo(row) {
-  const packageRepoElement = row.find('td:nth-child(3) span');
+  const packageRepoElement = row.find(SNYK_TYPE_COLUMN_PATTERN);
   if (packageRepoElement == null) {
     console.warn('Expecting third column to exist, but none was found');
     return undefined;
