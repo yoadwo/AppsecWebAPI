@@ -3,8 +3,9 @@ const cheerio = require('cheerio');
 const Responses = require("../common/responses");
 
 const SNYK_VULNS_TABLE = '.vue--table.vulns-table__table';
-const SNYK_SEVERITY_ICON = '.vue--severity__item';
-const SEVERITY_PATTERN = /vue--severity__item--(.*)/;
+const SNYK_SEVERITY_ITEM = '.vue--severity__item';
+const SNYK_SEVERITY_PATTERN = /vue--severity__item--(.*)/;
+const SNYK_HTML_MODIFIED = 'HTML cannot be parsed, page may have been changed by snyk';
 
 exports.handler = async (event) => {
   console.log("query string params: ", event.queryStringParameters);
@@ -23,97 +24,123 @@ exports.handler = async (event) => {
     redirect: 'follow',
   }).then((r) => r.text());
 
-  const packagesInfo = extractPackagesInfoFromTable(html);
-  console.log("packages found: ", packagesInfo);
-
-  const filteredPackages = packagesInfo.filter(pi => {
-    return pi.repo.toLowerCase() == repo.toLowerCase() &&
-      pi.name.toLowerCase() == packageName.toLowerCase() &&
-      pi.type == "Malicious Package"
-  });
-
-  console.log("packages filtered: ", filteredPackages);
-
-  return Responses._200(filteredPackages.map(pkg => {
-    return {
-      severity: pkg.severity
-    }
-  }));
-}
-
-function extractPackagesInfoFromTable(html) {
-  const packagesInfo = [];
-
   const $ = cheerio.load(html);
   const vulnsTable = $(SNYK_VULNS_TABLE);
 
   if (vulnsTable.length == 0) {
     console.log('No results found for the search term.');
-    return packagesInfo;
+    return [];
   }
+
+  let packagesInfo = [];
+  try {
+    packagesInfo = extractPackagesInfoFromTable($, vulnsTable);
+    console.log("packages found: ", packagesInfo);
+  } catch (e) {
+    return Responses._500({error: e.message});
+  }
+
+  const filteredPackages = filterPackages(packagesInfo, repo, packageName);
+  console.log("packages filtered: ", filteredPackages);
+
+  return Responses._200({
+    data: filteredPackages.map(pkg => {
+      return {
+        severity: pkg.severity
+      }
+    })
+  })
+}
+
+function extractPackagesInfoFromTable($, vulnsTable) {
+  const packagesInfo = [];
 
   // Enumerate and print the rows
   vulnsTable.find('tbody > tr').each((index, element) => {
     const row = $(element);
 
-    const packageNameElement = extractNameElement(row);
-    if (packageNameElement == null) {
-      console.warn('Expecting element "a" when looking for package title, but none was found');
-      return;
-    }
+    const packageNameString = extractPackageName(row);
 
-    const vulnerabilityElement = extractVulnerabilityElement(row);
-    if (vulnerabilityElement == null) {
-      console.warn('Expecting element "a" when looking for row title, but none was found');
-      return;
-    }
+    const vulnerabilityString = extractVulnerability(row);
 
-    const packageRepoElement = extractRepoElement(row);
-    if (packageRepoElement == null || packageRepoElement.attr('type') === undefined) {
-      console.warn('Expecting third column to contain type when looking for severity icon, but none was found');
-      return;
-    }
+    const packageRepoString = extractRepo(row);
 
-    const severityText = extractSeverity(row);
-    if (severityText == null) {
-      return;
-    }
+    const severityString = extractSeverity(row);
+
+    if ([packageNameString, vulnerabilityString, packageRepoString, severityString].includes(undefined)){
+      throw new Error(SNYK_HTML_MODIFIED)
+    }    
 
     packagesInfo.push({
-      name: packageNameElement.text().trim(),
-      type: vulnerabilityElement.text().trim(),
-      repo: packageRepoElement.text().trim(),
-      severity: severityText
+      name: packageNameString,
+      type: vulnerabilityString,
+      repo: packageRepoString,
+      severity: severityString
     })
   });
   return packagesInfo;
 }
 
-function extractNameElement(row) {
-  return row.find('a[data-snyk-test="vuln package"]');
+function extractPackageName(row) {
+  const packageNameElement = row.find('a[data-snyk-test="vuln package"]');
+  if (packageNameElement == null) {
+    console.warn('Expecting element "a" when looking for package title, but none was found');
+    return undefined;
+  } else {
+    return packageNameElement.text().trim();
+  }
 }
 
-function extractVulnerabilityElement(row) {
-  return row.find('a[data-snyk-test="vuln table title"]');
+function extractVulnerability(row) {
+  const vulnerabilityElement = row.find('a[data-snyk-test="vuln table title"]');
+  if (vulnerabilityElement == null) {
+    console.warn('Expecting element "a" when looking for row title, but none was found');
+    return undefined;;
+  } else {
+    return vulnerabilityElement.text().trim();
+  }
 }
 
-function extractRepoElement(row) {
-  return row.find('td:nth-child(3) span');
+function extractRepo(row) {
+  const packageRepoElement = row.find('td:nth-child(3) span');
+  if (packageRepoElement == null) {
+    console.warn('Expecting third column to exist, but none was found');
+    return undefined;
+  }
+  const repo = packageRepoElement.attr('type');
+  if (repo == null){
+    console.warn('Expecting third column to contain type as attribute, but none was found')
+    return undefined;
+  }
+  
+  return repo;  
 }
 
 function extractSeverity(row) {
-  const severityItem = row.find(SNYK_SEVERITY_ICON);
+  const severityItem = row.find(SNYK_SEVERITY_ITEM);
   if (severityItem == null) {
-    console.warn('Expecting specific class when looking for severity icon, but none was found');
-    return;
+    console.warn('Expecting specific class when looking for severity, but none was found');
+    return undefined;
   }
-  const classes = severityItem.attr('class').split(' ');
-  const severityClass = classes[1];
-  const match = new RegExp(SEVERITY_PATTERN).exec(severityClass);
-  if (match == null || match.length < 2) {
-    console.warn('Expecting specific class when looking for severity text, but none was found');
-    return;
+  console.log('severity item', severityItem);
+  let classes = [];
+  let match = [];
+  try {
+    classes = severityItem.attr('class').split(' ');
+    const severityClass = classes[1];
+    match = new RegExp(SNYK_SEVERITY_PATTERN).exec(severityClass);
+    return match[1];
+  } catch (e) {
+    console.warn('Expecting specific class when looking for severity, but none was found');
+    console.error(e);
+    return undefined;
   }
-  return match[1];
+}
 
+function filterPackages(packagesInfo, repo, packageName) {
+  return packagesInfo.filter(pi => {
+    return pi.repo.toLowerCase() == repo.toLowerCase() &&
+      pi.name.toLowerCase() == packageName.toLowerCase() &&
+      pi.type == "Malicious Package";
+  });
 }
