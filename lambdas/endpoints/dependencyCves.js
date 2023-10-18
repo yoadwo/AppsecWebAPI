@@ -2,6 +2,7 @@ const fetch = require("node-fetch");
 //const fetch = require('../common/fetch');
 
 const Responses = require("../common/responses");
+const handleApiResponse = require("../../osv.dev-parsers/osv-parsers");
 
 const osvScannerUrl = 'https://api.osv.dev/v1/query';
 
@@ -32,12 +33,13 @@ exports.handler = async (event) => {
     }),
   });
   const osvScannerData = await osvScannerResponse.json();
-  console.log('osv.dev response: ', osvScannerData);
-  const mappedOsvScannerData = manipulateOsvScannerData(osvScannerData);
+  //console.log('osv.dev response: ', osvScannerData);
+  const response = await handleApiResponse(osvScannerData);
+  //const mappedOsvScannerData = manipulateOsvScannerData(osvScannerData);
 
-  console.log("mapped osv scanner data: ", mappedOsvScannerData);  
+  //console.log("mapped osv scanner data: ", mappedOsvScannerData);  
 
-  return Responses._200(mappedOsvScannerData);
+  return Responses._200(response);
 };
 
 function manipulateOsvScannerData(jsonObject){
