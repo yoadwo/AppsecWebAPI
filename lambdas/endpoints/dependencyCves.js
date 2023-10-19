@@ -33,11 +33,8 @@ exports.handler = async (event) => {
     }),
   });
   const osvScannerData = await osvScannerResponse.json();
-  //console.log('osv.dev response: ', osvScannerData);
+  console.log('osv.dev response: ', osvScannerData);
   const response = await handleApiResponse(osvScannerData);
-  //const mappedOsvScannerData = manipulateOsvScannerData(osvScannerData);
-
-  //console.log("mapped osv scanner data: ", mappedOsvScannerData);  
 
   return Responses._200(response);
 };

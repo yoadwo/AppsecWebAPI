@@ -1,5 +1,4 @@
 function handleGHSA(element) {
-    console.log("ghsa");
     return {
         id: element.id,
         summary: element.summary,

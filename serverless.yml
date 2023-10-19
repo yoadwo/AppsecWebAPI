@@ -11,6 +11,7 @@ provider:
   environment:
     DOCKERHUB_USER: ${param:dockerhub_user}
     DOCKERHUB_PWD: ${param:dockerhub_pwd}
+    NVD_APIKEY: ${param:nvd_apikey}
 
 functions:
   hello:

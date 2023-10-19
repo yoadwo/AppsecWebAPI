@@ -9,13 +9,13 @@ async function handlePYSEC(element) {
 
     let githubAdvisory, nvd, cvss;    
 
-    const urls = [];
-    if (githubAlias) urls.push (DEPS_DEV_ADVISORY + githubAlias);
-    if (nvdAlias) urls.push(NVD_BASEURL + nvdAlias);
+    const endpoints = [];
+    if (githubAlias) endpoints.push({url: DEPS_DEV_ADVISORY + githubAlias});
+    if (nvdAlias) endpoints.push({url: NVD_BASEURL + nvdAlias, apiKey: process.env.NVD_APIKEY});
 
     // Maps each URL into a fetch() Promise
-    var requests = urls.map(function (url) {
-        return fetch(url)
+    var requests = endpoints.map(function (ep) {
+        return fetch(ep.url, {headers: {'apiKey': ep.apiKey}})
             .then(function (response) {
                 return response.json();
             })

@@ -19,12 +19,10 @@ async function handleApiResponse(osvScannerData) {
             case PYPI_DB:
                 // element has no severity, requires api call to nvd to get cvss
                 vulnWithSeverity = await handlePYSEC(vulnerability);
-                console.log("pysec success", vulnWithSeverity);
                 break;
             case GITHUB_SECURITY_ADVISORY_DB:
                 // element has github advisory rating
                 vulnWithSeverity = handleGHSA(vulnerability);
-                console.log("ghsa success", vulnWithSeverity);
                 break;
             case GITHUB_MALWARE:
                 // element won't have a rating, think just mark critical
