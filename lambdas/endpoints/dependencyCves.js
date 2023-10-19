@@ -34,9 +34,19 @@ exports.handler = async (event) => {
   });
   const osvScannerData = await osvScannerResponse.json();
   console.log('osv.dev response: ', osvScannerData);
-  const response = await handleApiResponse(osvScannerData);
+  try {
+    const response = await handleApiResponse(osvScannerData);
+    return Responses._200({
+      data: response
+    });
+  } catch (e) {
+    return Responses._500({
+      error: e.toString()
+    })
+  }
+  
 
-  return Responses._200(response);
+  
 };
 
 function manipulateOsvScannerData(jsonObject){
