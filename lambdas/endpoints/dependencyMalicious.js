@@ -10,6 +10,9 @@ const SNYK_VULNERABILITY_COLUMN_PATTERN = 'a[data-snyk-test="vuln table title"]'
 const SNYK_AFFECTS_COLUMN_PATTERN = 'a[data-snyk-test="vuln package"]';
 const SNYK_TYPE_COLUMN_PATTERN = 'td:nth-child(3) span';
 const SNYK_HTML_MODIFIED = 'HTML cannot be parsed, page may have been changed by snyk';
+const REPO_MAPPING = {
+  "PyPi": "pip",
+}
 
 exports.handler = async (event) => {
   console.log("query string params: ", event.queryStringParameters);
@@ -169,8 +172,17 @@ function extractSeverity(row) {
 
 function filterPackages(packagesInfo, repo, packageName) {
   return packagesInfo.filter(pi => {
-    return pi.repo.toLowerCase() == repo.toLowerCase() &&
+    return pi.repo.toLowerCase() == getMappedValue(repo).toLowerCase() &&
       pi.name.toLowerCase() == packageName.toLowerCase() &&
       pi.type == "Malicious Package";
   });
+}
+
+function getMappedValue(repo) {
+  // Check if the repo exists in the mapping, if so, return the transformed value
+  if (REPO_MAPPING[repo]) {
+    return REPO_MAPPING[repo];
+  }
+  // If no mapping is found, return the original value
+  return repo;
 }
